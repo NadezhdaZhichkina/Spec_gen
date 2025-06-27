@@ -21,7 +21,7 @@ PROGRAM_OPTIONS = [
     "Casebook API"
 ]
 
-
+# Инициализация
 if "rows" not in st.session_state:
     st.session_state.rows = [{
         "name": PROGRAM_OPTIONS[0],
@@ -31,6 +31,7 @@ if "rows" not in st.session_state:
         "price_annual": 0.0
     }]
 
+# Рендер строк
 valid_rows = []
 for i, row in enumerate(st.session_state.rows):
     cols = st.columns([1.5, 1, 1, 1, 1, 0.3, 0.3])
@@ -60,17 +61,16 @@ for i, row in enumerate(st.session_state.rows):
                     "price_annual": 0.0
                 })
 
-
     if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
         valid_rows.append(row)
 
-# Новый расчёт: дней = (end - start) + 1, цена = annual / 365 * days
+# Расчёт стоимости
 def calculate_price(start_date, end_date, annual_price):
     days = (end_date - start_date).days + 1
     price_per_day = annual_price / 365
     return round(price_per_day * days, 2)
 
-# DOCX генерация
+# DOCX генератор
 def generate_specification_docx(data_rows):
     doc = Document()
     style = doc.styles['Normal']
@@ -147,7 +147,7 @@ def generate_specification_docx(data_rows):
     buffer.seek(0)
     return buffer
 
-# Вывод результатов
+# Вывод
 if valid_rows:
     data_rows = []
     for row in valid_rows:
@@ -167,12 +167,13 @@ if valid_rows:
     df = pd.DataFrame([{
         "№": idx + 1,
         "Правообладатель": 'АО "Право.ру"',
-        "Наименование программы для ЭВМ, право использования которой предоставляется Лицензиату": f"Программа для ЭВМ {r['name']}",
+        "Наименование программы": f"Программа для ЭВМ {r['name']}",
         "Кол-во лицензий": r["count"],
         "Срок": f"от {r['start_date'].strftime('%d.%m.%Y')} до {r['end_date'].strftime('%d.%m.%Y')} гг.",
         "Стоимость лицензии, руб. РФ": f"{r['per_license']:,.2f}".replace(",", " ").replace(".", ","),
         "Сумма, руб. РФ": f"{r['total']:,.2f}".replace(",", " ").replace(".", ",")
     } for idx, r in enumerate(data_rows)])
+
     st.markdown("### 🧾 Расчёт по позициям:")
     st.table(df)
 
