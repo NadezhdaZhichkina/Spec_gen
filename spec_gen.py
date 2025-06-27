@@ -33,7 +33,7 @@ if "rows" not in st.session_state:
 
 valid_rows = []
 for i, row in enumerate(st.session_state.rows):
-    cols = st.columns([1.2, 1, 1, 1, 1, 0.3])
+    cols = st.columns([1.5, 1, 1, 1, 1, 0.3, 0.3])
     with cols[0]:
         row["name"] = st.selectbox(f"Программа {i+1}", PROGRAM_OPTIONS, key=f"name_{i}")
     with cols[1]:
@@ -45,14 +45,21 @@ for i, row in enumerate(st.session_state.rows):
     with cols[4]:
         row["price_annual"] = st.number_input(f"₽ за 12 мес {i+1}", min_value=0.0, step=100.0, value=row["price_annual"], key=f"price_{i}")
     with cols[5]:
-        if st.button("➕", key=f"add_{i}"):
-            st.session_state.rows.append({
-                "name": PROGRAM_OPTIONS[0],
-                "start_date": datetime.today().date(),
-                "end_date": datetime.today().date(),
-                "count": 1,
-                "price_annual": 0.0
-            })
+        if st.button("🗑️", key=f"del_{i}"):
+            if len(st.session_state.rows) > 1:
+                st.session_state.rows.pop(i)
+                st.experimental_rerun()
+    with cols[6]:
+        if i == len(st.session_state.rows) - 1:
+            if st.button("➕", key=f"add_{i}"):
+                st.session_state.rows.append({
+                    "name": PROGRAM_OPTIONS[0],
+                    "start_date": datetime.today().date(),
+                    "end_date": datetime.today().date(),
+                    "count": 1,
+                    "price_annual": 0.0
+                })
+
 
     if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
         valid_rows.append(row)
