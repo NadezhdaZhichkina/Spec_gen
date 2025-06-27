@@ -58,7 +58,7 @@ for i, row in enumerate(st.session_state.rows):
                     "count": 1,
                     "price_annual": 0.0
                 })
-                st.experimental_rerun()
+                st.rerun()
 
     if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
         valid_rows.append(row)
