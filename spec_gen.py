@@ -8,7 +8,7 @@ from io import BytesIO
 import pandas as pd
 
 st.set_page_config(page_title="Генератор спецификации", layout="wide")
-st.title("📄 Генератор спецификации по программам")
+st.markdown("<h1 style='display:flex; align-items:center;'>📄 Генератор спецификации по программам</h1>", unsafe_allow_html=True)
 
 PROGRAM_OPTIONS = [
     "Case.one",
@@ -31,27 +31,21 @@ if "rows" not in st.session_state:
     }]
 
 valid_rows = []
-
 for i, row in enumerate(st.session_state.rows):
-    cols = st.columns([1.8, 1, 1, 0.7, 1.2, 0.2, 0.2])
+    cols = st.columns([2, 1.2, 1.2, 0.8, 1.2, 0.2, 0.2])
     with cols[0]:
-        row["name"] = st.selectbox(f"Программа {i+1}", PROGRAM_OPTIONS, key=f"name_{i}")
+        row["name"] = st.selectbox(" ", PROGRAM_OPTIONS, label_visibility="collapsed", key=f"name_{i}")
     with cols[1]:
-        row["start_date"] = st.date_input(f"Начало {i+1}", value=row["start_date"], format="DD.MM.YYYY", key=f"start_{i}")
+        row["start_date"] = st.date_input(" ", value=row["start_date"], format="DD.MM.YYYY", label_visibility="collapsed", key=f"start_{i}")
     with cols[2]:
-        row["end_date"] = st.date_input(f"Окончание {i+1}", value=row["end_date"], format="DD.MM.YYYY", key=f"end_{i}")
+        row["end_date"] = st.date_input(" ", value=row["end_date"], format="DD.MM.YYYY", label_visibility="collapsed", key=f"end_{i}")
     with cols[3]:
-        count_str = st.text_input(f"Кол-во {i+1}", value=str(row["count"]), key=f"count_{i}")
-        row["count"] = int(count_str) if count_str.isdigit() else 1
+        row["count"] = st.number_input(" ", min_value=1, step=1, value=row["count"], label_visibility="collapsed", key=f"count_{i}")
     with cols[4]:
-        price_str = st.text_input(f"₽ за 12 мес {i+1}", value=str(row["price_annual"]).replace(".", ","), key=f"price_{i}")
-        try:
-            row["price_annual"] = float(price_str.replace(",", "."))
-        except:
-            row["price_annual"] = 0.0
+        row["price_annual"] = st.number_input(" ", min_value=0.0, step=100.0, value=row["price_annual"], label_visibility="collapsed", key=f"price_{i}")
     with cols[5]:
-        if st.button("🗑️", key=f"del_{i}"):
-            if len(st.session_state.rows) > 1:
+        if len(st.session_state.rows) > 1:
+            if st.button("🗑️", key=f"del_{i}"):
                 st.session_state.rows.pop(i)
                 st.experimental_rerun()
     with cols[6]:
@@ -64,16 +58,15 @@ for i, row in enumerate(st.session_state.rows):
                     "count": 1,
                     "price_annual": 0.0
                 })
+                st.experimental_rerun()
 
     if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
         valid_rows.append(row)
-
 
 def calculate_price(start_date, end_date, annual_price):
     days = (end_date - start_date).days + 1
     price_per_day = annual_price / 365
     return round(price_per_day * days, 2)
-
 
 def generate_specification_docx(data_rows):
     doc = Document()
@@ -83,7 +76,6 @@ def generate_specification_docx(data_rows):
     font.size = Pt(9)
 
     doc.add_paragraph("Спецификация", style='Normal').runs[0].bold = True
-
     table = doc.add_table(rows=1, cols=7)
     table.style = 'Table Grid'
 
@@ -151,13 +143,10 @@ def generate_specification_docx(data_rows):
     buffer.seek(0)
     return buffer
 
-
 if valid_rows:
     data_rows = []
     for row in valid_rows:
-        start_dt = datetime.combine(row["start_date"], datetime.min.time())
-        end_dt = datetime.combine(row["end_date"], datetime.min.time())
-        per_license = calculate_price(start_dt, end_dt, row["price_annual"])
+        per_license = calculate_price(row["start_date"], row["end_date"], row["price_annual"])
         total = round(per_license * row["count"], 2)
         data_rows.append({
             "name": row["name"],
@@ -188,6 +177,11 @@ if valid_rows:
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
-if st.button("🗑️ Очистить всё"):
-    st.session_state.rows = []
-    st.success("Все строки удалены.")
+if st.button("🧹 Очистить всё"):
+    for row in st.session_state.rows:
+        row["name"] = PROGRAM_OPTIONS[0]
+        row["start_date"] = datetime.today().date()
+        row["end_date"] = datetime.today().date()
+        row["count"] = 1
+        row["price_annual"] = 0.0
+    st.experimental_rerun()
