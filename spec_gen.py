@@ -9,7 +9,7 @@ from io import BytesIO
 import pandas as pd
 
 st.set_page_config(page_title="Генератор спецификации", layout="wide")
-st.title("📄 Генератор спецификации при выравании периодов")
+st.title("📄 Генератор спецификации по программам")
 
 PROGRAM_OPTIONS = ["С1", "КБ", "КЛ"]
 
@@ -46,17 +46,20 @@ for i, row in enumerate(st.session_state.rows):
                 "price_annual": 0.0
             })
 
-    if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
+    if row["start_date"] < row["end_date"] and row["price_annual"] > 0:
         valid_rows.append(row)
 
-# Расчёт
+# ❗️ Функция стоимости: последний день НЕ включаем
 def calculate_price(start_date, end_date, annual_price):
+    days = (end_date - start_date).days  # без +1
     total = 0.0
     current = start_date
-    while current <= end_date:
+
+    for _ in range(days):
         year_days = 366 if isleap(current.year) else 365
         total += annual_price / year_days
         current += timedelta(days=1)
+
     return round(total, 2)
 
 # Генерация DOCX
@@ -136,7 +139,7 @@ def generate_specification_docx(data_rows):
     buffer.seek(0)
     return buffer
 
-# Вывод результатов
+# Вывод
 if valid_rows:
     data_rows = []
     for row in valid_rows:
