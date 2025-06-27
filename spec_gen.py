@@ -9,51 +9,40 @@ st.title("📄 Генератор спецификации по программ
 
 PROGRAM_OPTIONS = ["С1", "КБ", "КЛ"]
 
-# Хранилище строк лицензий
-if "programs" not in st.session_state:
-    st.session_state.programs = []
+# Храним строки в session_state
+if "rows" not in st.session_state:
+    st.session_state.rows = []
 
-# Форма в одну строку
-st.markdown("### ➕ Добавить позицию")
+# ➕ Добавить строку
+if st.button("➕ Добавить строку"):
+    st.session_state.rows.append({
+        "name": PROGRAM_OPTIONS[0],
+        "start_date": datetime.today().date(),
+        "end_date": datetime.today().date(),
+        "count": 1,
+        "price_annual": 0.0
+    })
 
-with st.form("add_row", clear_on_submit=True):
+# Форма строк (редактируемых)
+valid_rows = []
+for i, row in enumerate(st.session_state.rows):
     cols = st.columns([1.2, 1, 1, 1, 1])
     with cols[0]:
-        program_name = st.selectbox("Программа", PROGRAM_OPTIONS)
+        row["name"] = st.selectbox(f"Программа {i+1}", PROGRAM_OPTIONS, key=f"name_{i}")
     with cols[1]:
-        start_date = st.date_input("Начало", key="start")
+        row["start_date"] = st.date_input(f"Начало {i+1}", value=row["start_date"], key=f"start_{i}")
     with cols[2]:
-        end_date = st.date_input("Окончание", key="end")
+        row["end_date"] = st.date_input(f"Окончание {i+1}", value=row["end_date"], key=f"end_{i}")
     with cols[3]:
-        license_count = st.number_input("Кол-во", min_value=1, step=1)
+        row["count"] = st.number_input(f"Кол-во {i+1}", min_value=1, step=1, value=row["count"], key=f"count_{i}")
     with cols[4]:
-        price_annual = st.number_input("₽ за 12 мес/1 лиц", min_value=0.0, step=100.0)
+        row["price_annual"] = st.number_input(f"₽ за 12 мес {i+1}", min_value=0.0, step=100.0, value=row["price_annual"], key=f"price_{i}")
 
-    submit = st.form_submit_button("Добавить")
+    # Валидация
+    if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
+        valid_rows.append(row)
 
-    if submit:
-        if start_date > end_date:
-            st.error("❌ Дата начала позже даты окончания!")
-        else:
-            st.session_state.programs.append({
-                "name": program_name,
-                "start_date": datetime.combine(start_date, datetime.min.time()),
-                "end_date": datetime.combine(end_date, datetime.min.time()),
-                "count": license_count,
-                "price_annual": price_annual
-            })
-            st.success("✅ Позиция добавлена!")
-
-# Показываем текущие позиции
-if st.session_state.programs:
-    st.markdown("### 📋 Добавленные позиции:")
-    for idx, p in enumerate(st.session_state.programs):
-        st.markdown(
-            f"**{idx + 1}.** {p['name']}: с {p['start_date'].strftime('%d.%m.%Y')} по {p['end_date'].strftime('%d.%m.%Y')}, "
-            f"{p['count']} шт. по {p['price_annual']:.2f} ₽"
-        )
-
-# Функция расчёта стоимости
+# 💰 Калькулятор с учётом високосных лет
 def calculate_price(start_date, end_date, annual_price):
     total = 0.0
     current = start_date
@@ -63,48 +52,56 @@ def calculate_price(start_date, end_date, annual_price):
         current += timedelta(days=1)
     return round(total, 2)
 
-# Генерация спецификации
-if st.button("📄 Сгенерировать спецификацию"):
-    if not st.session_state.programs:
-        st.warning("Добавьте хотя бы одну позицию.")
-    else:
-        doc = Document()
-        doc.add_heading("Спецификация", level=1)
+# 📄 Генерация спецификации
+if valid_rows and st.button("📄 Сгенерировать спецификацию"):
+    doc = Document()
+    doc.add_heading("Спецификация", level=1)
 
-        table = doc.add_table(rows=1, cols=6)
-        table.style = 'Table Grid'
-        hdr = table.rows[0].cells
-        hdr[0].text = "№"
-        hdr[1].text = "Программа"
-        hdr[2].text = "Срок действия"
-        hdr[3].text = "Стоимость 1 лицензии"
-        hdr[4].text = "Кол-во"
-        hdr[5].text = "Стоимость всего"
+    table = doc.add_table(rows=1, cols=6)
+    table.style = 'Table Grid'
+    hdr = table.rows[0].cells
+    hdr[0].text = "№"
+    hdr[1].text = "Программа"
+    hdr[2].text = "Срок действия"
+    hdr[3].text = "Стоимость 1 лицензии"
+    hdr[4].text = "Кол-во"
+    hdr[5].text = "Стоимость всего"
 
-        for idx, p in enumerate(st.session_state.programs, 1):
-            per_license = calculate_price(p["start_date"], p["end_date"], p["price_annual"])
-            total_price = round(per_license * p["count"], 2)
+    st.markdown("### 🧾 Расчёт по позициям:")
 
-            row = table.add_row().cells
-            row[0].text = str(idx)
-            row[1].text = f"Программа для ЭВМ «{p['name']}»"
-            row[2].text = f"с {p['start_date'].strftime('%d.%m.%Y')} по {p['end_date'].strftime('%d.%m.%Y')}"
-            row[3].text = f"{per_license:,.2f}".replace(",", " ").replace(".", ",") + " ₽"
-            row[4].text = str(p["count"])
-            row[5].text = f"{total_price:,.2f}".replace(",", " ").replace(".", ",") + " ₽"
+    for idx, p in enumerate(valid_rows, 1):
+        start_dt = datetime.combine(p["start_date"], datetime.min.time())
+        end_dt = datetime.combine(p["end_date"], datetime.min.time())
+        per_license = calculate_price(start_dt, end_dt, p["price_annual"])
+        total_price = round(per_license * p["count"], 2)
 
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
+        # Вставляем в таблицу Word
+        row = table.add_row().cells
+        row[0].text = str(idx)
+        row[1].text = f"Программа для ЭВМ {p['name']}"
+        row[2].text = f"с {p['start_date'].strftime('%d.%m.%Y')} по {p['end_date'].strftime('%d.%m.%Y')}"
+        row[3].text = f"{per_license:,.2f}".replace(",", " ").replace(".", ",") + " ₽"
+        row[4].text = str(p["count"])
+        row[5].text = f"{total_price:,.2f}".replace(",", " ").replace(".", ",") + " ₽"
 
-        st.download_button(
-            label="📥 Скачать спецификацию (.docx)",
-            data=buffer,
-            file_name="спецификация.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        # Показываем на экране
+        st.markdown(
+            f"**{idx}.** Программа для ЭВМ {p['name']} с {p['start_date'].strftime('%d.%m.%Y')} по {p['end_date'].strftime('%d.%m.%Y')}, "
+            f"{p['count']} шт., стоимость: **{total_price:,.2f} ₽**"
         )
 
-# Кнопка очистки
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+
+    st.download_button(
+        label="📥 Скачать спецификацию (.docx)",
+        data=buffer,
+        file_name="спецификация.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+# Очистка
 if st.button("🗑️ Очистить всё"):
-    st.session_state.programs = []
-    st.success("Все позиции удалены.")
+    st.session_state.rows = []
+    st.success("Все строки удалены.")
