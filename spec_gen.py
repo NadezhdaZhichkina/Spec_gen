@@ -1,3 +1,4 @@
+
 import streamlit as st
 from datetime import datetime
 from docx import Document
@@ -27,8 +28,15 @@ if "rows" not in st.session_state:
         "start_date": datetime.today().date(),
         "end_date": datetime.today().date(),
         "count": 1,
-        "price_annual": 0.0
+        "price_annual": "0,00"
     }]
+
+header_cols = st.columns([2, 1.2, 1.2, 0.8, 1.2, 0.2, 0.2])
+header_cols[0].markdown("**Наименование программы**")
+header_cols[1].markdown("**Начало предоставления доступа**")
+header_cols[2].markdown("**Окончание предоставления доступа**")
+header_cols[3].markdown("**Кол-во лицензий**")
+header_cols[4].markdown("**Стоимость за 12 мес.**")
 
 valid_rows = []
 for i, row in enumerate(st.session_state.rows):
@@ -42,12 +50,13 @@ for i, row in enumerate(st.session_state.rows):
     with cols[3]:
         row["count"] = st.number_input(" ", min_value=1, step=1, value=row["count"], label_visibility="collapsed", key=f"count_{i}")
     with cols[4]:
-        row["price_annual"] = st.number_input(" ", min_value=0.0, step=100.0, value=row["price_annual"], label_visibility="collapsed", key=f"price_{i}")
+        price_str = st.text_input(" ", value=row["price_annual"], label_visibility="collapsed", key=f"price_{i}")
+        row["price_annual"] = price_str
     with cols[5]:
         if len(st.session_state.rows) > 1:
             if st.button("🗑️", key=f"del_{i}"):
                 st.session_state.rows.pop(i)
-                st.experimental_rerun()
+                st.rerun()
     with cols[6]:
         if i == len(st.session_state.rows) - 1:
             if st.button("➕", key=f"add_{i}"):
@@ -56,11 +65,17 @@ for i, row in enumerate(st.session_state.rows):
                     "start_date": datetime.today().date(),
                     "end_date": datetime.today().date(),
                     "count": 1,
-                    "price_annual": 0.0
+                    "price_annual": "0,00"
                 })
                 st.rerun()
 
-    if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
+    try:
+        price_val = float(row["price_annual"].replace(",", "."))
+    except ValueError:
+        price_val = 0.0
+
+    if row["start_date"] <= row["end_date"] and price_val > 0:
+        row["price_val"] = price_val
         valid_rows.append(row)
 
 def calculate_price(start_date, end_date, annual_price):
@@ -146,7 +161,7 @@ def generate_specification_docx(data_rows):
 if valid_rows:
     data_rows = []
     for row in valid_rows:
-        per_license = calculate_price(row["start_date"], row["end_date"], row["price_annual"])
+        per_license = calculate_price(row["start_date"], row["end_date"], row["price_val"])
         total = round(per_license * row["count"], 2)
         data_rows.append({
             "name": row["name"],
@@ -176,12 +191,3 @@ if valid_rows:
         file_name="спецификация.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
-
-if st.button("🧹 Очистить всё"):
-    for row in st.session_state.rows:
-        row["name"] = PROGRAM_OPTIONS[0]
-        row["start_date"] = datetime.today().date()
-        row["end_date"] = datetime.today().date()
-        row["count"] = 1
-        row["price_annual"] = 0.0
-    st.experimental_rerun()
