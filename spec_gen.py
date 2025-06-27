@@ -75,19 +75,24 @@ if valid_rows and st.button("📄 Сгенерировать специфика�
         per_license = calculate_price(start_dt, end_dt, p["price_annual"])
         total_price = round(per_license * p["count"], 2)
 
-        # Вставляем в таблицу Word
+        # Форматируем даты
+        start_str = p["start_date"].strftime('%d.%m.%Y')
+        end_str = p["end_date"].strftime('%d.%m.%Y')
+
+        # Записываем в Word таблицу
         row = table.add_row().cells
         row[0].text = str(idx)
         row[1].text = f"Программа для ЭВМ {p['name']}"
-        row[2].text = f"с {p['start_date'].strftime('%d.%m.%Y')} по {p['end_date'].strftime('%d.%m.%Y')}"
+        row[2].text = f"с {start_str} по {end_str}"
         row[3].text = f"{per_license:,.2f}".replace(",", " ").replace(".", ",") + " ₽"
         row[4].text = str(p["count"])
         row[5].text = f"{total_price:,.2f}".replace(",", " ").replace(".", ",") + " ₽"
 
-        # Показываем на экране
+        # Показываем пользователю
         st.markdown(
-            f"**{idx}.** Программа для ЭВМ {p['name']} с {p['start_date'].strftime('%d.%m.%Y')} по {p['end_date'].strftime('%d.%m.%Y')}, "
-            f"{p['count']} шт., стоимость: **{total_price:,.2f} ₽**"
+            f"**{idx}.** Программа для ЭВМ {p['name']} с {start_str} по {end_str}, "
+            f"{p['count']} шт. — {per_license:,.2f} ₽ за 1, **{total_price:,.2f} ₽ всего**"
+            .replace(",", " ").replace(".", ",")
         )
 
     buffer = BytesIO()
