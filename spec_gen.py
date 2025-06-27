@@ -43,6 +43,7 @@ for i, row in enumerate(st.session_state.rows):
     if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
         valid_rows.append(row)
 
+# Счёт стоимости с учётом високосного года и +1 дня
 def calculate_price(start_date, end_date, annual_price):
     total = 0.0
     current = start_date
@@ -52,6 +53,7 @@ def calculate_price(start_date, end_date, annual_price):
         current += timedelta(days=1)
     return round(total, 2)
 
+# Генерация .docx
 def generate_specification_docx(data_rows):
     doc = Document()
     style = doc.styles['Normal']
@@ -67,7 +69,7 @@ def generate_specification_docx(data_rows):
     headers = [
         "№",
         "Правообладатель",
-        "Наименование программы для ЭВМ",
+        "Наименование программы для ЭВМ, право использования которой предоставляется Лицензиату",
         "Кол-во Лицензий*",
         "Срок, на который предоставляется право",
         "Цена, руб. РФ",
