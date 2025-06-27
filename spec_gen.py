@@ -24,7 +24,7 @@ if st.button("➕ Добавить строку"):
         "price_annual": 0.0
     })
 
-# Форма ввода для каждой строки
+# Форма ввода
 valid_rows = []
 for i, row in enumerate(st.session_state.rows):
     cols = st.columns([1.2, 1, 1, 1, 1])
@@ -39,11 +39,10 @@ for i, row in enumerate(st.session_state.rows):
     with cols[4]:
         row["price_annual"] = st.number_input(f"₽ за 12 мес {i+1}", min_value=0.0, step=100.0, value=row["price_annual"], key=f"price_{i}")
 
-    # Валидация
     if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
         valid_rows.append(row)
 
-# 💰 Калькулятор с учётом високосных лет
+# 💰 Расчёт по дням
 def calculate_price(start_date, end_date, annual_price):
     total = 0.0
     current = start_date
@@ -58,15 +57,16 @@ if valid_rows and st.button("📄 Сгенерировать специфика�
     doc = Document()
     doc.add_heading("Спецификация", level=1)
 
+    # Заголовок таблицы Word
     table = doc.add_table(rows=1, cols=6)
     table.style = 'Table Grid'
     hdr = table.rows[0].cells
     hdr[0].text = "№"
-    hdr[1].text = "Программа"
-    hdr[2].text = "Срок действия"
-    hdr[3].text = "Стоимость 1 лицензии"
-    hdr[4].text = "Кол-во"
-    hdr[5].text = "Стоимость всего"
+    hdr[1].text = "Наименование программы для ЭВМ"
+    hdr[2].text = "Кол-во лицензий"
+    hdr[3].text = "Срок, на который предоставляется право"
+    hdr[4].text = "Стоимость лицензии, руб. РФ"
+    hdr[5].text = "Сумма, руб. РФ"
 
     st.markdown("### 🧾 Расчёт по позициям:")
 
@@ -79,27 +79,27 @@ if valid_rows and st.button("📄 Сгенерировать специфика�
 
         start_str = p["start_date"].strftime('%d.%m.%Y')
         end_str = p["end_date"].strftime('%d.%m.%Y')
+        period_str = f"от {start_str} до {end_str} гг."
 
-        # Word таблица
+        # Word
         row = table.add_row().cells
         row[0].text = str(idx)
         row[1].text = f"Программа для ЭВМ {p['name']}"
-        row[2].text = f"с {start_str} по {end_str}"
-        row[3].text = f"{per_license:.2f} ₽"
-        row[4].text = str(p["count"])
-        row[5].text = f"{total_price:.2f} ₽"
+        row[2].text = str(p["count"])
+        row[3].text = period_str
+        row[4].text = f"{per_license:.2f}"
+        row[5].text = f"{total_price:.2f}"
 
-        # Таблица для интерфейса
+        # Интерфейс
         result_data.append({
             "№": idx,
-            "Программа": f"Программа для ЭВМ {p['name']}",
-            "Срок": f"с {start_str} по {end_str}",
-            "Кол-во": p["count"],
-            "₽ за 1": f"{per_license:.2f} ₽",
-            "Итого ₽": f"{total_price:.2f} ₽"
+            "Наименование программы для ЭВМ": f"Программа для ЭВМ {p['name']}",
+            "Кол-во лицензий": p["count"],
+            "Срок": period_str,
+            "Стоимость лицензии, руб. РФ": f"{per_license:.2f}",
+            "Сумма, руб. РФ": f"{total_price:.2f}"
         })
 
-    # Показываем результат в интерфейсе как таблицу
     df = pd.DataFrame(result_data)
     st.table(df)
 
