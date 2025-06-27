@@ -5,77 +5,85 @@ from docx import Document
 from io import BytesIO
 
 st.set_page_config(page_title="Генератор спецификации", layout="centered")
-st.title("📄 Генератор спецификации по лицензиям")
+st.title("📄 Генератор спецификации по программам")
 
-# Ввод общей конечной даты
-end_date_input = st.date_input("📅 Конечная дата действия всех лицензий (включительно)")
-end_date = datetime.combine(end_date_input, datetime.min.time()) if end_date_input else None
+PROGRAM_OPTIONS = ["С1", "КБ", "КЛ"]
 
 # Хранилище лицензий
-if "licenses" not in st.session_state:
-    st.session_state.licenses = []
+if "programs" not in st.session_state:
+    st.session_state.programs = []
 
-# ➕ Добавление лицензии
-with st.form("add_license_form"):
+# ➕ Добавление строки лицензии
+with st.form("add_program_form"):
     col1, col2 = st.columns(2)
     with col1:
-        start_date_input = st.date_input("Дата начала лицензии", key="start_date")
+        program_name = st.selectbox("Программа", PROGRAM_OPTIONS)
+        start_date = st.date_input("Дата начала действия")
     with col2:
-        price_annual = st.number_input("Стоимость за 12 месяцев (₽)", min_value=0.0, step=100.0, key="price")
+        end_date = st.date_input("Дата окончания действия")
+        license_count = st.number_input("Количество лицензий", min_value=1, step=1)
 
-    submitted = st.form_submit_button("➕ Добавить лицензию")
-    if submitted and start_date_input and price_annual and end_date:
-        start_date = datetime.combine(start_date_input, datetime.min.time())
+    price_annual = st.number_input("Стоимость за 12 месяцев (за 1 лицензию, ₽)", min_value=0.0, step=100.0)
+
+    submitted = st.form_submit_button("➕ Добавить позицию")
+    if submitted:
         if start_date > end_date:
-            st.error("❌ Дата начала позже конечной!")
+            st.error("❌ Дата начала позже даты окончания!")
         else:
-            st.session_state.licenses.append({
-                "start_date": start_date,
+            st.session_state.programs.append({
+                "name": program_name,
+                "start_date": datetime.combine(start_date, datetime.min.time()),
+                "end_date": datetime.combine(end_date, datetime.min.time()),
+                "count": license_count,
                 "price_annual": price_annual
             })
-            st.success("✅ Лицензия добавлена!")
+            st.success("✅ Добавлено!")
 
-# Отображение добавленных лицензий
-if st.session_state.licenses:
-    st.markdown("### 📋 Добавленные лицензии:")
-    for idx, lic in enumerate(st.session_state.licenses):
+# Отображение добавленных строк
+if st.session_state.programs:
+    st.markdown("### 📋 Добавленные позиции:")
+    for idx, p in enumerate(st.session_state.programs):
         st.markdown(
-            f"**{idx + 1}.** С {lic['start_date'].strftime('%d.%m.%Y')} по {end_date.strftime('%d.%m.%Y')} — "
-            f"{lic['price_annual']:.2f} ₽ / год"
+            f"**{idx + 1}.** {p['name']}: с {p['start_date'].strftime('%d.%m.%Y')} по {p['end_date'].strftime('%d.%m.%Y')}, "
+            f"{p['count']} лицензий по {p['price_annual']:.2f} ₽"
         )
 
-# 🔢 Функция с учётом високосных лет
-def calculate_total_price(start_date, end_date, annual_price):
-    total_price = 0.0
-    current_date = start_date
-    while current_date <= end_date:
-        year_length = 366 if isleap(current_date.year) else 365
-        daily_rate = annual_price / year_length
-        total_price += daily_rate
-        current_date += timedelta(days=1)
-    return round(total_price, 2)
+# 💰 Расчёт стоимости по календарным дням
+def calculate_price(start_date, end_date, annual_price):
+    total = 0.0
+    current = start_date
+    while current <= end_date:
+        year_days = 366 if isleap(current.year) else 365
+        total += annual_price / year_days
+        current += timedelta(days=1)
+    return round(total, 2)
 
 # 📄 Генерация спецификации
-if st.button("📄 Сгенерировать спецификацию") and end_date and st.session_state.licenses:
+if st.button("📄 Сгенерировать спецификацию") and st.session_state.programs:
     doc = Document()
     doc.add_heading("Спецификация", level=1)
 
-    table = doc.add_table(rows=1, cols=3)
+    table = doc.add_table(rows=1, cols=6)
     table.style = 'Table Grid'
-    table.autofit = True
-    hdr_cells = table.rows[0].cells
-    hdr_cells[0].text = "№"
-    hdr_cells[1].text = "Период действия лицензии"
-    hdr_cells[2].text = "Стоимость (₽)"
+    hdr = table.rows[0].cells
+    hdr[0].text = "№"
+    hdr[1].text = "Программа"
+    hdr[2].text = "Срок действия"
+    hdr[3].text = "Стоимость 1 лицензии"
+    hdr[4].text = "Кол-во лицензий"
+    hdr[5].text = "Стоимость всего"
 
-    for idx, lic in enumerate(st.session_state.licenses, 1):
-        start = lic["start_date"]
-        total_price = calculate_total_price(start, end_date, lic["price_annual"])
+    for idx, p in enumerate(st.session_state.programs, 1):
+        per_license = calculate_price(p["start_date"], p["end_date"], p["price_annual"])
+        total_price = round(per_license * p["count"], 2)
 
-        row_cells = table.add_row().cells
-        row_cells[0].text = str(idx)
-        row_cells[1].text = f"с {start.strftime('%d.%m.%Y')} по {end_date.strftime('%d.%m.%Y')}"
-        row_cells[2].text = f"{total_price:,.2f}".replace(",", " ").replace(".", ",")
+        row = table.add_row().cells
+        row[0].text = str(idx)
+        row[1].text = f"Программа для ЭВМ «{p['name']}»"
+        row[2].text = f"с {p['start_date'].strftime('%d.%m.%Y')} по {p['end_date'].strftime('%d.%m.%Y')}"
+        row[3].text = f"{per_license:,.2f}".replace(",", " ").replace(".", ",") + " ₽"
+        row[4].text = str(p["count"])
+        row[5].text = f"{total_price:,.2f}".replace(",", " ").replace(".", ",") + " ₽"
 
     buffer = BytesIO()
     doc.save(buffer)
@@ -88,7 +96,7 @@ if st.button("📄 Сгенерировать спецификацию") and end
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
-# 🔁 Очистить список
-if st.button("🔁 Очистить лицензии"):
-    st.session_state.licenses = []
-    st.success("Список лицензий очищен.")
+# 🔁 Очистка списка
+if st.button("🔁 Очистить все"):
+    st.session_state.programs = []
+    st.success("Очищено.")
