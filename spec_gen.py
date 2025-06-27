@@ -61,11 +61,12 @@ def generate_specification_docx(data_rows):
 
     doc.add_paragraph("Спецификация", style='Normal').runs[0].bold = True
 
-    table = doc.add_table(rows=1, cols=6)
+    table = doc.add_table(rows=1, cols=7)
     table.style = 'Table Grid'
 
     headers = [
         "№",
+        "Правообладатель",
         "Наименование программы для ЭВМ",
         "Кол-во Лицензий*",
         "Срок, на который предоставляется право",
@@ -94,6 +95,7 @@ def generate_specification_docx(data_rows):
 
         values = [
             str(idx),
+            'АО "Право.ру"',
             name,
             str(count),
             period,
@@ -110,14 +112,14 @@ def generate_specification_docx(data_rows):
         total_sum += total
 
     total_row = table.add_row().cells
-    total_row[0].merge(total_row[4])
+    total_row[0].merge(total_row[5])
     total_row[0].text = "Итого общий размер лицензионного вознаграждения:"
     run = total_row[0].paragraphs[0].runs[0]
     run.font.name = 'Times New Roman'
     run.font.size = Pt(9)
 
-    total_row[5].text = f"{total_sum:,.2f}".replace(",", " ").replace(".", ",")
-    run2 = total_row[5].paragraphs[0].runs[0]
+    total_row[6].text = f"{total_sum:,.2f}".replace(",", " ").replace(".", ",")
+    run2 = total_row[6].paragraphs[0].runs[0]
     run2.font.name = 'Times New Roman'
     run2.font.size = Pt(9)
 
@@ -143,18 +145,18 @@ if valid_rows:
             "total": total
         })
 
-    # Интерфейсная таблица
     df = pd.DataFrame([{
+        "№": idx + 1,
+        "Правообладатель": 'АО "Право.ру"',
         "Наименование программы для ЭВМ, право использования которой предоставляется Лицензиату": f"Программа для ЭВМ {r['name']}",
         "Кол-во лицензий": r["count"],
         "Срок": f"от {r['start_date'].strftime('%d.%m.%Y')} до {r['end_date'].strftime('%d.%m.%Y')} гг.",
         "Стоимость лицензии, руб. РФ": f"{r['per_license']:,.2f}".replace(",", " ").replace(".", ","),
         "Сумма, руб. РФ": f"{r['total']:,.2f}".replace(",", " ").replace(".", ",")
-    } for r in data_rows])
+    } for idx, r in enumerate(data_rows)])
     st.markdown("### 🧾 Расчёт по позициям:")
     st.table(df)
 
-    # Скачивание
     docx_buffer = generate_specification_docx(data_rows)
     st.download_button(
         label="📥 Скачать спецификацию (.docx)",
