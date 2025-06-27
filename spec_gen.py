@@ -14,21 +14,18 @@ st.title("📄 Генератор спецификации по программ
 PROGRAM_OPTIONS = ["С1", "КБ", "КЛ"]
 
 if "rows" not in st.session_state:
-    st.session_state.rows = []
-
-if st.button("➕ Добавить строку"):
-    st.session_state.rows.append({
+    st.session_state.rows = [{
         "name": PROGRAM_OPTIONS[0],
         "start_date": datetime.today().date(),
         "end_date": datetime.today().date(),
         "count": 1,
         "price_annual": 0.0
-    })
+    }]
 
-# Ввод строк
+# Ввод строк с кнопкой ➕ справа
 valid_rows = []
 for i, row in enumerate(st.session_state.rows):
-    cols = st.columns([1.2, 1, 1, 1, 1])
+    cols = st.columns([1.2, 1, 1, 1, 1, 0.3])
     with cols[0]:
         row["name"] = st.selectbox(f"Программа {i+1}", PROGRAM_OPTIONS, key=f"name_{i}")
     with cols[1]:
@@ -39,11 +36,20 @@ for i, row in enumerate(st.session_state.rows):
         row["count"] = st.number_input(f"Кол-во {i+1}", min_value=1, step=1, value=row["count"], key=f"count_{i}")
     with cols[4]:
         row["price_annual"] = st.number_input(f"₽ за 12 мес {i+1}", min_value=0.0, step=100.0, value=row["price_annual"], key=f"price_{i}")
+    with cols[5]:
+        if st.button("➕", key=f"add_{i}"):
+            st.session_state.rows.append({
+                "name": PROGRAM_OPTIONS[0],
+                "start_date": datetime.today().date(),
+                "end_date": datetime.today().date(),
+                "count": 1,
+                "price_annual": 0.0
+            })
 
     if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
         valid_rows.append(row)
 
-# Счёт стоимости с учётом високосного года и +1 дня
+# Расчёт
 def calculate_price(start_date, end_date, annual_price):
     total = 0.0
     current = start_date
@@ -53,7 +59,7 @@ def calculate_price(start_date, end_date, annual_price):
         current += timedelta(days=1)
     return round(total, 2)
 
-# Генерация .docx
+# Генерация DOCX
 def generate_specification_docx(data_rows):
     doc = Document()
     style = doc.styles['Normal']
@@ -130,7 +136,7 @@ def generate_specification_docx(data_rows):
     buffer.seek(0)
     return buffer
 
-# Вывод и генерация
+# Вывод результатов
 if valid_rows:
     data_rows = []
     for row in valid_rows:
