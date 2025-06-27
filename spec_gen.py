@@ -2,6 +2,9 @@ import streamlit as st
 from datetime import datetime, timedelta
 from calendar import isleap
 from docx import Document
+from docx.shared import Pt
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from io import BytesIO
 import pandas as pd
 
@@ -10,11 +13,9 @@ st.title("📄 Генератор спецификации по программ
 
 PROGRAM_OPTIONS = ["С1", "КБ", "КЛ"]
 
-# Храним строки в session_state
 if "rows" not in st.session_state:
     st.session_state.rows = []
 
-# ➕ Добавить строку
 if st.button("➕ Добавить строку"):
     st.session_state.rows.append({
         "name": PROGRAM_OPTIONS[0],
@@ -24,7 +25,7 @@ if st.button("➕ Добавить строку"):
         "price_annual": 0.0
     })
 
-# Форма ввода
+# Ввод строк
 valid_rows = []
 for i, row in enumerate(st.session_state.rows):
     cols = st.columns([1.2, 1, 1, 1, 1])
@@ -42,7 +43,6 @@ for i, row in enumerate(st.session_state.rows):
     if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
         valid_rows.append(row)
 
-# 💰 Расчёт по дням
 def calculate_price(start_date, end_date, annual_price):
     total = 0.0
     current = start_date
@@ -52,69 +52,117 @@ def calculate_price(start_date, end_date, annual_price):
         current += timedelta(days=1)
     return round(total, 2)
 
-# 📄 Генерация спецификации
-if valid_rows and st.button("📄 Сгенерировать спецификацию"):
+def generate_specification_docx(data_rows):
     doc = Document()
-    doc.add_heading("Спецификация", level=1)
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Times New Roman'
+    font.size = Pt(9)
 
-    # Заголовок таблицы Word
+    doc.add_paragraph("Спецификация", style='Normal').runs[0].bold = True
+
     table = doc.add_table(rows=1, cols=6)
     table.style = 'Table Grid'
-    hdr = table.rows[0].cells
-    hdr[0].text = "№"
-    hdr[1].text = "Наименование программы для ЭВМ"
-    hdr[2].text = "Кол-во лицензий"
-    hdr[3].text = "Срок, на который предоставляется право"
-    hdr[4].text = "Стоимость лицензии, руб. РФ"
-    hdr[5].text = "Сумма, руб. РФ"
 
-    st.markdown("### 🧾 Расчёт по позициям:")
+    headers = [
+        "№",
+        "Наименование программы для ЭВМ",
+        "Кол-во Лицензий*",
+        "Срок, на который предоставляется право",
+        "Цена, руб. РФ",
+        "Сумма, руб. РФ"
+    ]
 
-    result_data = []
-    for idx, p in enumerate(valid_rows, 1):
-        start_dt = datetime.combine(p["start_date"], datetime.min.time())
-        end_dt = datetime.combine(p["end_date"], datetime.min.time())
-        per_license = calculate_price(start_dt, end_dt, p["price_annual"])
-        total_price = round(per_license * p["count"], 2)
+    hdr_cells = table.rows[0].cells
+    for i, header in enumerate(headers):
+        hdr_cells[i].text = header
+        run = hdr_cells[i].paragraphs[0].runs[0]
+        run.font.name = 'Times New Roman'
+        run.font.size = Pt(9)
+        shd = OxmlElement('w:shd')
+        shd.set(qn('w:fill'), "D9D9D9")
+        hdr_cells[i]._tc.get_or_add_tcPr().append(shd)
 
-        start_str = p["start_date"].strftime('%d.%m.%Y')
-        end_str = p["end_date"].strftime('%d.%m.%Y')
-        period_str = f"от {start_str} до {end_str} гг."
+    total_sum = 0
+    for idx, row in enumerate(data_rows, 1):
+        cells = table.add_row().cells
+        name = f"Программа для ЭВМ {row['name']}"
+        count = row["count"]
+        period = f"с {row['start_date'].strftime('%d.%m.%Y')} по {row['end_date'].strftime('%d.%m.%Y')}"
+        per_license = row["per_license"]
+        total = row["total"]
 
-        # Word
-        row = table.add_row().cells
-        row[0].text = str(idx)
-        row[1].text = f"Программа для ЭВМ {p['name']}"
-        row[2].text = str(p["count"])
-        row[3].text = period_str
-        row[4].text = f"{per_license:.2f}"
-        row[5].text = f"{total_price:.2f}"
+        values = [
+            str(idx),
+            name,
+            str(count),
+            period,
+            f"{per_license:,.2f}".replace(",", " ").replace(".", ","),
+            f"{total:,.2f}".replace(",", " ").replace(".", ",")
+        ]
 
-        # Интерфейс
-        result_data.append({
-            "№": idx,
-            "Наименование программы для ЭВМ": f"Программа для ЭВМ {p['name']}",
-            "Кол-во лицензий": p["count"],
-            "Срок": period_str,
-            "Стоимость лицензии, руб. РФ": f"{per_license:.2f}",
-            "Сумма, руб. РФ": f"{total_price:.2f}"
-        })
+        for i, val in enumerate(values):
+            cells[i].text = val
+            run = cells[i].paragraphs[0].runs[0]
+            run.font.name = 'Times New Roman'
+            run.font.size = Pt(9)
 
-    df = pd.DataFrame(result_data)
-    st.table(df)
+        total_sum += total
+
+    total_row = table.add_row().cells
+    total_row[0].merge(total_row[4])
+    total_row[0].text = "Итого общий размер лицензионного вознаграждения:"
+    run = total_row[0].paragraphs[0].runs[0]
+    run.font.name = 'Times New Roman'
+    run.font.size = Pt(9)
+
+    total_row[5].text = f"{total_sum:,.2f}".replace(",", " ").replace(".", ",")
+    run2 = total_row[5].paragraphs[0].runs[0]
+    run2.font.name = 'Times New Roman'
+    run2.font.size = Pt(9)
 
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
+    return buffer
 
+# Вывод и генерация
+if valid_rows:
+    data_rows = []
+    for row in valid_rows:
+        start_dt = datetime.combine(row["start_date"], datetime.min.time())
+        end_dt = datetime.combine(row["end_date"], datetime.min.time())
+        per_license = calculate_price(start_dt, end_dt, row["price_annual"])
+        total = round(per_license * row["count"], 2)
+        data_rows.append({
+            "name": row["name"],
+            "count": row["count"],
+            "start_date": row["start_date"],
+            "end_date": row["end_date"],
+            "per_license": per_license,
+            "total": total
+        })
+
+    # Интерфейсная таблица
+    df = pd.DataFrame([{
+        "Наименование программы для ЭВМ, право использования которой предоставляется Лицензиату": f"Программа для ЭВМ {r['name']}",
+        "Кол-во лицензий": r["count"],
+        "Срок": f"от {r['start_date'].strftime('%d.%m.%Y')} до {r['end_date'].strftime('%d.%m.%Y')} гг.",
+        "Стоимость лицензии, руб. РФ": f"{r['per_license']:,.2f}".replace(",", " ").replace(".", ","),
+        "Сумма, руб. РФ": f"{r['total']:,.2f}".replace(",", " ").replace(".", ",")
+    } for r in data_rows])
+    st.markdown("### 🧾 Расчёт по позициям:")
+    st.table(df)
+
+    # Скачивание
+    docx_buffer = generate_specification_docx(data_rows)
     st.download_button(
         label="📥 Скачать спецификацию (.docx)",
-        data=buffer,
+        data=docx_buffer,
         file_name="спецификация.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
-# Очистка
 if st.button("🗑️ Очистить всё"):
     st.session_state.rows = []
     st.success("Все строки удалены.")
