@@ -1,6 +1,5 @@
 import streamlit as st
-from datetime import datetime, timedelta
-from calendar import isleap
+from datetime import datetime
 from docx import Document
 from docx.shared import Pt
 from docx.oxml import OxmlElement
@@ -22,7 +21,6 @@ if "rows" not in st.session_state:
         "price_annual": 0.0
     }]
 
-# Ввод строк с кнопкой ➕ справа
 valid_rows = []
 for i, row in enumerate(st.session_state.rows):
     cols = st.columns([1.2, 1, 1, 1, 1, 0.3])
@@ -46,23 +44,16 @@ for i, row in enumerate(st.session_state.rows):
                 "price_annual": 0.0
             })
 
-    if row["start_date"] < row["end_date"] and row["price_annual"] > 0:
+    if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
         valid_rows.append(row)
 
-# ❗️ Функция стоимости: последний день НЕ включаем
+# Новый расчёт: дней = (end - start) + 1, цена = annual / 365 * days
 def calculate_price(start_date, end_date, annual_price):
-    days = (end_date - start_date).days  # без +1
-    total = 0.0
-    current = start_date
+    days = (end_date - start_date).days + 1
+    price_per_day = annual_price / 365
+    return round(price_per_day * days, 2)
 
-    for _ in range(days):
-        year_days = 366 if isleap(current.year) else 365
-        total += annual_price / year_days
-        current += timedelta(days=1)
-
-    return round(total, 2)
-
-# Генерация DOCX
+# DOCX генерация
 def generate_specification_docx(data_rows):
     doc = Document()
     style = doc.styles['Normal']
@@ -139,7 +130,7 @@ def generate_specification_docx(data_rows):
     buffer.seek(0)
     return buffer
 
-# Вывод
+# Вывод результатов
 if valid_rows:
     data_rows = []
     for row in valid_rows:
