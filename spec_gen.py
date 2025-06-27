@@ -10,7 +10,17 @@ import pandas as pd
 st.set_page_config(page_title="Генератор спецификации", layout="wide")
 st.title("📄 Генератор спецификации по программам")
 
-PROGRAM_OPTIONS = ["С1", "КБ", "КЛ"]
+PROGRAM_OPTIONS = [
+    "Case.one",
+    "Case.one тариф Управляй делами",
+    "Doc.one",
+    "Bot.one",
+    "Casebook тариф Standard",
+    "Casebook тариф PRO",
+    "Caselook",
+    "Casebook API"
+]
+
 
 if "rows" not in st.session_state:
     st.session_state.rows = [{
