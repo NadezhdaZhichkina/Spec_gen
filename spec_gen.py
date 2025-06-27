@@ -21,7 +21,6 @@ PROGRAM_OPTIONS = [
     "Casebook API"
 ]
 
-# Инициализация
 if "rows" not in st.session_state:
     st.session_state.rows = [{
         "name": PROGRAM_OPTIONS[0],
@@ -31,10 +30,10 @@ if "rows" not in st.session_state:
         "price_annual": 0.0
     }]
 
-# Рендер строк
 valid_rows = []
+
 for i, row in enumerate(st.session_state.rows):
-    cols = st.columns([1.5, 1, 1, 1, 1, 0.3, 0.3])
+    cols = st.columns([1.8, 1, 1, 0.7, 1.2, 0.2, 0.2])
     with cols[0]:
         row["name"] = st.selectbox(f"Программа {i+1}", PROGRAM_OPTIONS, key=f"name_{i}")
     with cols[1]:
@@ -42,9 +41,14 @@ for i, row in enumerate(st.session_state.rows):
     with cols[2]:
         row["end_date"] = st.date_input(f"Окончание {i+1}", value=row["end_date"], format="DD.MM.YYYY", key=f"end_{i}")
     with cols[3]:
-        row["count"] = st.number_input(f"Кол-во {i+1}", min_value=1, step=1, value=row["count"], key=f"count_{i}")
+        count_str = st.text_input(f"Кол-во {i+1}", value=str(row["count"]), key=f"count_{i}")
+        row["count"] = int(count_str) if count_str.isdigit() else 1
     with cols[4]:
-        row["price_annual"] = st.number_input(f"₽ за 12 мес {i+1}", min_value=0.0, step=100.0, value=row["price_annual"], key=f"price_{i}")
+        price_str = st.text_input(f"₽ за 12 мес {i+1}", value=str(row["price_annual"]).replace(".", ","), key=f"price_{i}")
+        try:
+            row["price_annual"] = float(price_str.replace(",", "."))
+        except:
+            row["price_annual"] = 0.0
     with cols[5]:
         if st.button("🗑️", key=f"del_{i}"):
             if len(st.session_state.rows) > 1:
@@ -64,13 +68,13 @@ for i, row in enumerate(st.session_state.rows):
     if row["start_date"] <= row["end_date"] and row["price_annual"] > 0:
         valid_rows.append(row)
 
-# Расчёт стоимости
+
 def calculate_price(start_date, end_date, annual_price):
     days = (end_date - start_date).days + 1
     price_per_day = annual_price / 365
     return round(price_per_day * days, 2)
 
-# DOCX генератор
+
 def generate_specification_docx(data_rows):
     doc = Document()
     style = doc.styles['Normal']
@@ -147,7 +151,7 @@ def generate_specification_docx(data_rows):
     buffer.seek(0)
     return buffer
 
-# Вывод
+
 if valid_rows:
     data_rows = []
     for row in valid_rows:
@@ -167,13 +171,12 @@ if valid_rows:
     df = pd.DataFrame([{
         "№": idx + 1,
         "Правообладатель": 'АО "Право.ру"',
-        "Наименование программы": f"Программа для ЭВМ {r['name']}",
+        "Наименование программы для ЭВМ, право использования которой предоставляется Лицензиату": f"Программа для ЭВМ {r['name']}",
         "Кол-во лицензий": r["count"],
         "Срок": f"от {r['start_date'].strftime('%d.%m.%Y')} до {r['end_date'].strftime('%d.%m.%Y')} гг.",
         "Стоимость лицензии, руб. РФ": f"{r['per_license']:,.2f}".replace(",", " ").replace(".", ","),
         "Сумма, руб. РФ": f"{r['total']:,.2f}".replace(",", " ").replace(".", ",")
     } for idx, r in enumerate(data_rows)])
-
     st.markdown("### 🧾 Расчёт по позициям:")
     st.table(df)
 
